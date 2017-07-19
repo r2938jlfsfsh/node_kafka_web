@@ -66,25 +66,17 @@ initHeartbeat = function(interval) {
     ); // setInterval
 }//initHeartbeat
 
-// initialize heartbeat at 10 second interval
-initHeartbeat(4);
+// initialize heartbeat at x second interval
+initHeartbeat(30);
 
-var consumer = new Consumer(
-    client,
-    [{ topic: "node_test", offset: 0}],
-    {fromOffset: true}
-);
-
-/*
 // Configure Kafka Consumer for Kafka Top3 Topic and handle Kafka message (by calling updateSseClients)
 var consumer = new Consumer(
     client,
     [],
     {fromOffset: true}
 );
-*/
+
 consumer.on('message', function (message) {
-    console.log("got message");
     handleCountryMessage(message);
 });
 
@@ -92,11 +84,11 @@ consumer.on('error', function(err) {
     console.log("ERROR: " + err.message);
 });
 
-/*
+
 consumer.addTopics([
     { topic: "node_test", partition: 0, offset: 0}
 ], () => console.log("topic added"));
-*/
+
 function handleCountryMessage(countryMessage) {
     var top3 = JSON.parse(countryMessage.value);
     top3.continent = new Buffer(countryMessage.key).toString('ascii');
