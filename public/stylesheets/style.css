@@ -6,3 +6,19 @@ body {
 a {
   color: #00B7FF;
 }
+
+table, th, td {
+  border: 1px solid black;
+}
+
+th, td {
+  padding: 15px;
+}
+
+th {
+  text-align: center;
+}
+
+table {
+  border-spacing: 5px;
+}

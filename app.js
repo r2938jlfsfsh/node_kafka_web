@@ -5,6 +5,7 @@ var express = require('express')
 
 var kafka = require('kafka-node');
 var Consumer = kafka.Consumer;
+//TODO add authentication
 var client = new kafka.Client(conf.ZOOKEEPER_CONN);
 
 var app = express();

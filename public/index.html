@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="stylesheets/style.css">
     <meta charset="UTF-8">
     <title>Job Tracker</title>
 
@@ -11,101 +12,89 @@
         /* "{\"nrs\":[{\"code\":\"FR\",\"name\":\"France\",\"population\":66836154,\"size\":643801,\"continent\":\"Europe\"},{\"code\":\"DE\",\"name\":\"Germany\",\"population\":80722792,\"size\":357022,\"continent\":\"Europe\"},{\"code\":\"FI\",\"name\":\"Finland\",\"population\":5498211,\"size\":338145,\"continent\":\"Europe\"},null]}"
     update all Sse Client with message {"nrs":[{"code":"FR","name":"France","population":66836154,"size":643801,"continent":"Europe"},{"code":"DE","name":"Germany","population":80722792,"size":357022,"continent":"Europe"},{"code":"FI","name":"Finland","population":5498211,"size":338145,"continent":"Europe"},null]}
     */
+
         var source = new EventSource("../jobStatus/updates");
         source.onmessage = function(event) {
+
+            var writeLog = function(logMsg){
+                if (document.getElementById("logArea").style.visibility === 'visible') {
+                    var logA = document.getElementById("logArea");
+                    logA.innerHTML = logMsg + "<br>" + logA.innerHTML;
+                }
+            }
+
             var logArea = document.getElementById("logArea");
             var tableArea = document.getElementById("tableArea");
             var msg = JSON.parse(event.data);
             if (msg.topic) {
-                logArea.innerHTML = msg.topic + "<br>" + msg.value + "<br>" + logArea.innerHTML;
+                //logArea.innerHTML = msg.topic + "<br>" + msg.value + "<br>" + logArea.innerHTML;
+                writeLog(msg.topic + "<br>" + msg.value);
                 var msgVal = JSON.parse(msg.value);
-                logArea.innerHTML = "Parsed value: " + msg.value + "<br>" + logArea.innerHTML;
-                if (document.getElementById("table_"+msg.topic) == null) {
-                    logArea.innerHTML = "Creating table" + "<br>" + logArea.innerHTML;
+                var tblID = "table_"+msg.topic;
+                writeLog("Parsed value: " + msgVal);
+                if (document.getElementById(tblID) == null) {
+                    writeLog("Creating table");
                     var table = document.createElement('table');
-                    table.id = "table_" + msg.topic;
+                    table.id = tblID;
                     var row = document.createElement('tr');
                     var col = 0;
                     for (var k in msgVal){
-                        logArea.innerHTML = "Doing key " + k + "<br>" + logArea.innerHTML;
-                        row.appendChild(document.createElement('td'));
+                        if (col == 0) {
+                            table.setAttribute('keyFieldName',k)
+                        }
+                        writeLog("Doing key " + k);
+                        row.appendChild(document.createElement('th'));
                         row.cells[col].appendChild(document.createTextNode(k));
                         col++;
                     }
                     table.appendChild(row);
                     tableArea.appendChild(table);
                 } else {
-                    logArea.innerHTML = "Found table" + "<br>" + logArea.innerHTML;
+                    writeLog("Found existing table");
                 }
 
-                var t = document.getElementById("table_"+msg.topic);
+                var t = document.getElementById(tblID);
+                var rowID = tblID + "._." + msgVal[t.getAttribute('keyFieldName')];
+                writeLog("Row ID will be: " + rowID);
 
-                var colNum = 0;
-                var newRow = document.createElement('tr');
-                for (var k in msg.value){
-                    newRow.appendChild(document.createElement('td'));
-                    newRow.cells[colNum].appendChild(document.createTextNode(msg.value[k]));
-                    colNum++;
+                if (document.getElementById(rowID) != null){
+                    var r = document.getElementById(rowID);
+                    var colNum = 0;
+                    for (var k in msgVal) {
+                        r.cells[colNum].innerHTML = msgVal[k];
+                        colNum++;
+                    }
+
+                } else {
+                    var rowToInsert;
+                    for (var rowToInsert = 1, row; row = t.rows[rowToInsert] && t.rows[rowToInsert].id < rowID; rowToInsert++){
+                        ;
+                    }
+
+                    var newRow = t.insertRow(rowToInsert);
+                    newRow.id = rowID;
+                    var colNum = 0;
+                    for (var k in msgVal) {
+                        newRow.appendChild(document.createElement('td'));
+                        newRow.cells[colNum].appendChild(document.createTextNode(msgVal[k]));
+                        colNum++;
+                    }
                 }
 
-                //var topicTbl = logArea.getElementById(topic); //document.getElementById("")
-                //if (topicTbl)
             } else {
                 var lu = document.getElementById("lastUpdate");
                 var txt = JSON.parse(event.data);
-                lu.innerHTML = "Last server response: " + txt.time;
+                lu.innerHTML = "Last server heartbeat received: " + txt.time;
             } // if there's a topic
 
-            /*
-            if (top3.continent) {
-                var nrs = top3.nrs;
-                var trID = "continent_"+top3.continent;
-                // find row in table with id equal to continent
-                var tr = document.getElementById(trID);
-                // if not found, then add a row
-                if (!tr) {
-                    // table does not yet have a row for the continent, than add it
-                    // find table with continents
-                    var tbl = document.getElementById("continentsTbl");
-                    // Create an empty <tr> element and add it to the 1st position of the table:
-                    tr = tbl.insertRow(1);
-                    tr.setAttribute("id", trID, 0);
-                    // Insert new cells (<td> elements) at the 1st and 2nd position of the "new" <tr> element:
-                    var cell1 = tr.insertCell(0);
-                    cell1.setAttribute("id",trID+"Continent",0);
-                    var cell2 = tr.insertCell(1);
-                    cell2.setAttribute("id",trID+"Top3",0);
-                    // Add some text to the new cells:
-                    cell1.innerHTML = top3.continent;
-                }// tr not found
-                var top3Cell = document.getElementById(trID+"Top3");
-                var list = "<ol>";
-                for (country of top3.nrs) {
-                    if (country) {
-                        list= list.concat( "<li>",country.name," (size ",country.size.toLocaleString(),")","</li>");
-                    }
-                }//for
-                list= list+ "</ol>";
-                top3Cell.innerHTML = list;
-
-            */
         };//onMessage
     </script>
 </head>
 <body>
-<div id="loading">
-    <h2>Please wait...</h2>
-</div>
-<div id="result">
-    <table id="continentsTbl">
-        <tr><td>Continent</td><td>Top 3 Countries by Size</td></tr>
-    </table>
-</div>
-<br>
-<div id="tableArea">.</div>
+<div id="tableArea"></div>
 <div id="lastUpdate">
-    <p>Last server response: </p>
+    <p>Last server heartbeat received: </p>
 </div>
-<div id="logArea"></div>
+<div id="logArea" style="visibility: hidden"></div>
 </body>
 </html>
