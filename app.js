@@ -39,6 +39,7 @@ app.get('/jobStatus/updates', function(req,res){
     var sseConnection = res.sseConnection;
     sseConnection.setup();
     sseClients.add(sseConnection);
+    //TODO add initialisation from query
 } );
 
 var m;
@@ -83,15 +84,21 @@ consumer.on('error', function(err) {
     console.log("ERROR: " + err.message);
 });
 
-consumer.addTopics([
-    { topic: conf.kafkaTopic, partition: 0, offset: 0}
-], () => console.log("Topic added: " + conf.kafkaTopic));
+var topicString = [];
+for (var i = 0; i < conf.kafkaTopics.length; i++) {
+    topicString.push({topic: conf.kafkaTopics[i].topic, partition: 0, offset: 0});
+}
+
+consumer.addTopics(topicString, () => console.log("Topics added"));
 
 function handleMessage(msg) {
+    //TODO be able to handle delimited messages - translate to JSON based on pre-defined schema
+    //TODO be able to handle avro messages - translate to JSON
     //var top3 = JSON.parse(msg.value);
     //top3.continent = new Buffer(msg.key).toString('ascii');
     //updateSseClients( top3);
     //console.log("Full msg: "+JSON.stringify(msg));
+
     var outMsg = {topic: msg.topic, value: msg.value};
     //console.log("Output msg: "+JSON.stringify(outMsg));
     updateSseClients(outMsg);
