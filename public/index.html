@@ -13,7 +13,8 @@
     update all Sse Client with message {"nrs":[{"code":"FR","name":"France","population":66836154,"size":643801,"continent":"Europe"},{"code":"DE","name":"Germany","population":80722792,"size":357022,"continent":"Europe"},{"code":"FI","name":"Finland","population":5498211,"size":338145,"continent":"Europe"},null]}
     */
 
-        var source = new EventSource("../jobStatus/updates");
+        var srch = window.location.search;
+        var source = new EventSource("../jobStatus/updates" + srch);
         source.onmessage = function(event) {
 
             var writeLog = function(logMsg){

@@ -1,7 +1,8 @@
 var express = require('express')
     , http = require('http')
     , sseMW = require('./sse')
-    , conf = require('./config');
+    , conf = require('./config')
+    , bodyParser = require('body-parser');
 
 var kafka = require('kafka-node');
 var Consumer = kafka.Consumer;
@@ -9,6 +10,9 @@ var Consumer = kafka.Consumer;
 var client = new kafka.Client(conf.ZOOKEEPER_CONN);
 
 var app = express();
+app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.json());
+
 var server = http.createServer(app);
 
 server.listen(conf.LISTEN_PORT, function () {
@@ -19,6 +23,7 @@ server.listen(conf.LISTEN_PORT, function () {
 var sseClients = new sseMW.Topic();
 
 app.use(express.static(__dirname + '/public'));
+
 app.get('/about', function (req, res) {
     res.writeHead(200, {'Content-Type': 'text/html'});
     res.write("Version "+conf.APP_VERSION+". No Data Requested, so none is returned");
@@ -32,23 +37,44 @@ app.get('/about', function (req, res) {
 // Connection property to the request
 app.use(sseMW.sseMiddleware)
 
-// TODO Make this generic, not just jobStatus - should have one for each supported topic\
-// TODO Or it should be one but take a list of topics to follow
 // initial registration of SSE Client Connection
 app.get('/jobStatus/updates', function(req,res){
+    var topics = req.query.topicString;
+    var clientConf = {topics: []};
+
+    for (var i = 0; i < conf.kafkaTopics.length; i++) {
+        if (topics == null){
+            clientConf.topics.push(conf.kafkaTopics[i].topic);
+        } else {
+            var spl = topics.split(",");
+            for (let s of spl) {
+                if (s === conf.kafkaTopics[i].topic) {
+                    clientConf.topics.push(s);
+                }
+            }
+        }
+    }
+
     var sseConnection = res.sseConnection;
     sseConnection.setup();
-    sseClients.add(sseConnection);
+    sseClients.add(sseConnection, clientConf);
     //TODO add initialisation from query
 } );
 
 var m;
+
 //send message to all registered SSE clients
-updateSseClients = function(message) {
+updateSseClients = function(message, msgTopic) {
     this.m=message;
+    this.t=msgTopic;
     sseClients.forEach(
-        function(sseConnection) {
-            sseConnection.send(this.m);
+        function(sseConnection, arrayInd) {
+            if (this.t == null || sseClients.topicInConnConfig(arrayInd, this.t)) {
+                console.log("Sending message from client " + this.t + " to client " + arrayInd);
+                sseConnection.send(this.m);
+            } else {
+                console.log("Skipping sending message from topic " + this.t + " to client " + arrayInd);
+            }
         }
         , this // this second argument to forEach is the thisArg
         // (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach)
@@ -101,5 +127,5 @@ function handleMessage(msg) {
 
     var outMsg = {topic: msg.topic, value: msg.value};
     //console.log("Output msg: "+JSON.stringify(outMsg));
-    updateSseClients(outMsg);
+    updateSseClients(outMsg, msg.topic);
 }// handleMessage

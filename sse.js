@@ -40,21 +40,29 @@ exports.Connection = Connection;
  */
 var Topic = (function () {
     function Topic() {
-        console.log(" constructor for Topic");
-
         this.connections = [];
+        this.configs = [];
     }
-    Topic.prototype.add = function (conn) {
+    Topic.prototype.add = function (conn, conf) {
         var connections = this.connections;
+        var configs = this.configs;
         connections.push(conn);
-        console.log('New client connected, now: ', connections.length);
+        configs.push(conf);
+        console.log('New client connected, config: ' + JSON.stringify(conf) + ', now: ', connections.length);
+
         conn.res.on('close', function () {
             var i = connections.indexOf(conn);
             if (i >= 0) {
                 connections.splice(i, 1);
+                configs.splice(i, 1);
             }
             console.log('Client disconnected, now: ', connections.length);
         });
+    };
+    Topic.prototype.topicInConnConfig = function(ind, topic) {
+        var configs = this.configs;
+        var topInd = configs[ind].topics.indexOf(topic);
+        return topInd >= 0;
     };
     Topic.prototype.forEach = function (cb) {
         this.connections.forEach(cb);
