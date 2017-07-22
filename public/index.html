@@ -11,9 +11,52 @@
         /* "{\"nrs\":[{\"code\":\"FR\",\"name\":\"France\",\"population\":66836154,\"size\":643801,\"continent\":\"Europe\"},{\"code\":\"DE\",\"name\":\"Germany\",\"population\":80722792,\"size\":357022,\"continent\":\"Europe\"},{\"code\":\"FI\",\"name\":\"Finland\",\"population\":5498211,\"size\":338145,\"continent\":\"Europe\"},null]}"
     update all Sse Client with message {"nrs":[{"code":"FR","name":"France","population":66836154,"size":643801,"continent":"Europe"},{"code":"DE","name":"Germany","population":80722792,"size":357022,"continent":"Europe"},{"code":"FI","name":"Finland","population":5498211,"size":338145,"continent":"Europe"},null]}
     */
-        var source = new EventSource("../topn/updates");
+        var source = new EventSource("../jobStatus/updates");
         source.onmessage = function(event) {
-            var top3 = JSON.parse(event.data);
+            var logArea = document.getElementById("logArea");
+            var tableArea = document.getElementById("tableArea");
+            var msg = JSON.parse(event.data);
+            if (msg.topic) {
+                logArea.innerHTML = msg.topic + "<br>" + msg.value + "<br>" + logArea.innerHTML;
+                var msgVal = JSON.parse(msg.value);
+                logArea.innerHTML = "Parsed value: " + msg.value + "<br>" + logArea.innerHTML;
+                if (document.getElementById("table_"+msg.topic) == null) {
+                    logArea.innerHTML = "Creating table" + "<br>" + logArea.innerHTML;
+                    var table = document.createElement('table');
+                    table.id = "table_" + msg.topic;
+                    var row = document.createElement('tr');
+                    var col = 0;
+                    for (var k in msgVal){
+                        logArea.innerHTML = "Doing key " + k + "<br>" + logArea.innerHTML;
+                        row.appendChild(document.createElement('td'));
+                        row.cells[col].appendChild(document.createTextNode(k));
+                        col++;
+                    }
+                    table.appendChild(row);
+                    tableArea.appendChild(table);
+                } else {
+                    logArea.innerHTML = "Found table" + "<br>" + logArea.innerHTML;
+                }
+
+                var t = document.getElementById("table_"+msg.topic);
+
+                var colNum = 0;
+                var newRow = document.createElement('tr');
+                for (var k in msg.value){
+                    newRow.appendChild(document.createElement('td'));
+                    newRow.cells[colNum].appendChild(document.createTextNode(msg.value[k]));
+                    colNum++;
+                }
+
+                //var topicTbl = logArea.getElementById(topic); //document.getElementById("")
+                //if (topicTbl)
+            } else {
+                var lu = document.getElementById("lastUpdate");
+                var txt = JSON.parse(event.data);
+                lu.innerHTML = "Last server response: " + txt.time;
+            } // if there's a topic
+
+            /*
             if (top3.continent) {
                 var nrs = top3.nrs;
                 var trID = "continent_"+top3.continent;
@@ -44,11 +87,8 @@
                 }//for
                 list= list+ "</ol>";
                 top3Cell.innerHTML = list;
-            } else {
-                var lu = document.getElementById("lastUpdate");
-                var txt = JSON.parse(event.data);
-                lu.innerHTML = "Last server response: " + txt.time;
-            }// if continent
+
+            */
         };//onMessage
     </script>
 </head>
@@ -62,8 +102,10 @@
     </table>
 </div>
 <br>
+<div id="tableArea">.</div>
 <div id="lastUpdate">
     <p>Last server response: </p>
 </div>
+<div id="logArea"></div>
 </body>
 </html>
