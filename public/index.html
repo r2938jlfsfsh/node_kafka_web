@@ -23,7 +23,7 @@
             var tableArea = document.getElementById("tableArea");
 
             var msg = JSON.parse(event.data);
-            writeLog(JSON.stringify(msg));
+            writeLog("Received QUERY heartbeat: " + JSON.stringify(msg));
         }
 
         var msgSource = new EventSource("../jobStatus/updates" + srch);
@@ -106,6 +106,7 @@
                 var lu = document.getElementById("lastUpdate");
                 var txt = JSON.parse(event.data);
                 lu.innerHTML = "Last server heartbeat received: " + txt.time;
+                writeLog("Received MESSAGE heartbeat: " + JSON.stringify(txt));
             } // if there's a topic
 
         };//onMessage

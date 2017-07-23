@@ -25,7 +25,7 @@ module.exports = {
             topic: "jobStatus",
             timestampCol: "_msgTimestamp",
             initQueryConf: {
-                dbType: sqlite3
+                dbType: 'sqlite3',
                 dbConf: {
                     filename: 'sqllite.db',
                     // TODO Add process date placeholder

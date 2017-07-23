@@ -35,35 +35,52 @@ var Connection = (function () {
 }());
 
 exports.Connection = Connection;
+
+var ConnectionWrapper = (function () {
+    function ConnectionWrapper(conn, conf) {
+        this.connection = conn;
+        this.conf = conf;
+    }
+
+    ConnectionWrapper.prototype.topicSubscribed = function(topic) {
+        var topInd = this.conf.topics.indexOf(topic);
+        return topInd >= 0;
+    }
+
+    ConnectionWrapper.prototype.send = function(msg) {
+        this.connection.send(msg);
+    }
+
+    return ConnectionWrapper;
+}());
+exports.ConnectionWrapper = ConnectionWrapper;
+
 /**
  * A Topic handles a bundle of connections with cleanup after lost connection.
  */
 var Topic = (function () {
-    function Topic() {
+    function Topic(serverType) {
         this.connections = [];
-        this.configs = [];
+        this.serverType = serverType || 'UNKNOWN';
+        console.log("Created new connection bundle of type " + this.serverType);
     }
-    Topic.prototype.add = function (conn, conf, clientType) {
+    Topic.prototype.add = function (conn, conf) {
         var connections = this.connections;
-        var configs = this.configs;
-        connections.push(conn);
-        configs.push(conf);
-        console.log('New ' + clientType + ' client connected, config: ' + JSON.stringify(conf) + ', now: ', connections.length);
+        var serverType = this.serverType;
+        connections.push(new ConnectionWrapper(conn,conf));
+        console.log('New ' + this.serverType + ' client connected, config: ' + JSON.stringify(conf) + ', now: ', connections.length);
 
         conn.res.on('close', function () {
-            var i = connections.indexOf(conn);
-            if (i >= 0) {
-                connections.splice(i, 1);
-                configs.splice(i, 1);
+            for(var i = 0; i < connections.length; i++){
+                if (connections[i].connection == conn){
+                    connections.splice(i, 1);
+                }
             }
-            console.log('Client disconnected, now: ', connections.length);
+            console.log(serverType + ' client disconnected, now: ', connections.length);
         });
+
     };
-    Topic.prototype.topicInConnConfig = function(ind, topic) {
-        var configs = this.configs;
-        var topInd = configs[ind].topics.indexOf(topic);
-        return topInd >= 0;
-    };
+
     Topic.prototype.forEach = function (cb) {
         this.connections.forEach(cb);
     };

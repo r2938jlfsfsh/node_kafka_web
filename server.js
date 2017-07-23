@@ -3,7 +3,9 @@ var express = require('express')
     , sseMW = require('./sse')
     , sharedLib = require('./sharedLib')
     , conf = require('./config')
-    , bodyParser = require('body-parser');
+    , bodyParser = require('body-parser')
+    //, sql = require('sqlLib')
+;
 
 var args = sharedLib.processArgs(process.argv);
 
@@ -40,10 +42,16 @@ if (args.MESSAGE_SERVER) {
     }
 
     consumer.addTopics(topicString, () => console.log("Topics added"));
+
+    // Clients receiving realtime updates:
+    var sseClients = new sseMW.Topic('MESSAGE');
 }
 
 // Initialise queries if we're a query server:
-// TODO
+if (args.QUERY_SERVER) {
+    // Query clients, expected to be shortlived:
+    var sseQueryClients = new sseMW.Topic('QUERY');
+}
 
 var app = express();
 app.use(bodyParser.urlencoded({extended: true}));
@@ -54,12 +62,6 @@ var server = http.createServer(app);
 server.listen(myPort, function () {
     console.log('Server running, version '+conf.APP_VERSION+', Express is listening... at '+ myPort);
 });
-
-// Clients receiving realtime updates:
-var sseClients = new sseMW.Topic();
-
-// Query clients, expected to be shortlived:
-var sseQueryClients = new sseMW.Topic();
 
 app.use(express.static(__dirname + '/public'));
 
@@ -95,10 +97,10 @@ function createConn(req,res) {
 
     var sseConnection = res.sseConnection;
     sseConnection.setup();
-    return { conn: sseConnection, conf: clientConf};
+    return {conn: sseConnection, conf: clientConf};
 }
 
-var m;
+//var m;
 
 //send message to set of clients
 updateSseClients = function(message, msgTopic, clients) {
@@ -106,11 +108,11 @@ updateSseClients = function(message, msgTopic, clients) {
     this.t=msgTopic;
     //sseClients.forEach(
     clients.forEach(
-        function(sseConnection, arrayInd) {
-            //if (this.t == null || sseClients.topicInConnConfig(arrayInd, this.t)) {
-            if (this.t == null || clients.topicInConnConfig(arrayInd, this.t)) {
+        function(connWrapper, arrayInd) {
+            //XXif (this.t == null || clients.topicInConnConfig(arrayInd, this.t)) {
+            if (this.t == null || connWrapper.topicSubscribed(this.t)) {
                 console.log("Sending message from client " + this.t + " to client " + arrayInd);
-                sseConnection.send(this.m);
+                connWrapper.send(this.m);
             } else {
                 console.log("Skipping sending message from topic " + this.t + " to client " + arrayInd);
             }
@@ -123,8 +125,8 @@ updateSseClients = function(message, msgTopic, clients) {
 // initial registration of SSE Client Connection for messages
 if (args.MESSAGE_SERVER) {
     app.get('/jobStatus/updates', function(req,res){
-        var newConf = createConn(req, res);
-        sseClients.add(newConf.conn, newConf.conf, 'MESSAGE');
+        var newConn = createConn(req, res);
+        sseClients.add(newConn.conn, newConn.conf);
     } );
 
     function handleMessage(msg) {
@@ -137,17 +139,19 @@ if (args.MESSAGE_SERVER) {
 
         var msgVal = JSON.parse(msg.value);
         var metaVal = {};
-        var tsCol = '';
+        var tsCol;
 
         for (var i = 0; i < conf.kafkaTopics.length; i++) {
             if (conf.kafkaTopics[i].topic === msg.topic) {
-                tsCol = conf.kafkaTopics[i].timestampCol || '';
+                tsCol = conf.kafkaTopics[i].timestampCol;
             }
         }
-        for (k in msgVal){
-            if (k === tsCol){
-                metaVal['timestampCol'] = k;
-                metaVal['timestampVal'] =  msgVal[k];
+        if (tsCol) {
+            for (k in msgVal) {
+                if (k === tsCol) {
+                    metaVal['timestampCol'] = k;
+                    metaVal['timestampVal'] = msgVal[k];
+                }
             }
         }
         console.log(metaVal);
@@ -162,7 +166,30 @@ if (args.QUERY_SERVER) {
     app.get('/jobStatus/init', function(req,res){
         var newConf = createConn(req, res);
         sseQueryClients.add(newConf.conn, newConf.conf, 'QUERY');
+
+        // TODO First change connection and conf to be part of the same object, it'll make everything easier.
+
+        // TODO start the background query for each topic they subscribed to
+        // TODO Do one at a time or in parallel?  Start with one-at-a-time.
+
     } );
+/*
+
+    function handleQueryResults(data, client, endInd){
+        // data should be an array of comma+quote delimited messages
+
+        // Go through each record in the array
+        data.forEach(function(record, client){
+            // Transform into JSON
+
+            // Send to the client
+        });
+
+        if (endInd){
+            // Send end-of-data indicator for this client, so they close the Query connection.
+        }
+    }
+    */
 }
 
 // send a heartbeat signal to all SSE clients, once every interval seconds (or every 3 seconds
@@ -170,8 +197,12 @@ if (args.QUERY_SERVER) {
 initHeartbeat = function(interval) {
     setInterval(function()  {
             var msg = {"label":"The latest", "time":new Date()};
-            updateSseClients(msg,null,sseClients);
-            updateSseClients(msg, null, sseQueryClients);
+            if (args.MESSAGE_SERVER) {
+                updateSseClients(msg, null, sseClients);
+            }
+            if (args.QUERY_SERVER) {
+                updateSseClients(msg, null, sseQueryClients);
+            }
         }//interval function
         , interval?interval*1000:3000
     ); // setInterval
