@@ -8,8 +8,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>
         var srch = window.location.search;
-        var source = new EventSource("../jobStatus/updates" + srch);
-        source.onmessage = function(event) {
+
+        var msgSource = new EventSource("../jobStatus/init" + srch);
+        msgSource.onmessage = function(event) {
+
+            var writeLog = function (logMsg) {
+                if (document.getElementById("logArea").style.visibility === 'visible') {
+                    var logA = document.getElementById("logArea");
+                    logA.innerHTML = logMsg + "<br>" + logA.innerHTML;
+                }
+            }
+
+            var logArea = document.getElementById("logArea");
+            var tableArea = document.getElementById("tableArea");
+
+            var msg = JSON.parse(event.data);
+            writeLog(JSON.stringify(msg));
+        }
+
+        var msgSource = new EventSource("../jobStatus/updates" + srch);
+        msgSource.onmessage = function(event) {
 
             var writeLog = function(logMsg){
                 if (document.getElementById("logArea").style.visibility === 'visible') {

@@ -19,12 +19,19 @@ module.exports = {
         {
             topic: "jobStatusX",
             timestampCol: "_msgTimestamp",
-            initQueryRef: "fnInit_JobStatusX"
+            initQueryConf: {}
         },
         {
             topic: "jobStatus",
             timestampCol: "_msgTimestamp",
-            initQueryRef: "fnInit_JobStatus"
+            initQueryConf: {
+                dbType: sqlite3
+                dbConf: {
+                    filename: 'sqllite.db',
+                    // TODO Add process date placeholder
+                    query: "select * from jobStatus_vw"
+                }
+            }
         }
         ]
 };

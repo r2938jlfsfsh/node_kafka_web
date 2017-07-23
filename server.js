@@ -1,19 +1,49 @@
 var express = require('express')
     , http = require('http')
     , sseMW = require('./sse')
-    , conf = require('./config')
-    , bodyParser = require('body-parser')
     , sharedLib = require('./sharedLib')
-    , kafka = require('kafka-node');
+    , conf = require('./config')
+    , bodyParser = require('body-parser');
 
 var args = sharedLib.processArgs(process.argv);
 
-console.log("Args: " + JSON.stringify(args));
-console.log('Server type is ' + args.SERVER_TYPE);
+//console.log("Args: " + JSON.stringify(args));
+args.QUERY_SERVER && console.log('Operating as query server');
+args.MESSAGE_SERVER && console.log('Operating as message server');
 
-var Consumer = kafka.Consumer;
+var myPort = (args.QUERY_SERVER && ! args.MESSAGE_SERVER) ? conf.QRY_LISTEN_PORT : conf.MSG_LISTEN_PORT;
 
-var client = new kafka.Client(conf.ZOOKEEPER_CONN);
+// Initialise Kafka if we're a message server
+if (args.MESSAGE_SERVER) {
+    var kafka = require('kafka-node');
+    var Consumer = kafka.Consumer;
+    var client = new kafka.Client(conf.ZOOKEEPER_CONN);
+
+    // Configure Kafka Consumer
+    var consumer = new Consumer(
+        client,
+        [],
+        {fromOffset: true}
+    );
+
+    consumer.on('message', function (message) {
+        handleMessage(message);
+    });
+
+    consumer.on('error', function(err) {
+        console.log("ERROR: " + err.message);
+    });
+
+    var topicString = [];
+    for (var i = 0; i < conf.kafkaTopics.length; i++) {
+        topicString.push({topic: conf.kafkaTopics[i].topic, partition: 0, offset: 0});
+    }
+
+    consumer.addTopics(topicString, () => console.log("Topics added"));
+}
+
+// Initialise queries if we're a query server:
+// TODO
 
 var app = express();
 app.use(bodyParser.urlencoded({extended: true}));
@@ -21,12 +51,15 @@ app.use(bodyParser.json());
 
 var server = http.createServer(app);
 
-server.listen(conf.MSG_LISTEN_PORT, function () {
-    console.log('Message server running, version '+conf.APP_VERSION+', Express is listening... at '+ conf.MSG_LISTEN_PORT);
+server.listen(myPort, function () {
+    console.log('Server running, version '+conf.APP_VERSION+', Express is listening... at '+ myPort);
 });
 
-// Realtime updates
+// Clients receiving realtime updates:
 var sseClients = new sseMW.Topic();
+
+// Query clients, expected to be shortlived:
+var sseQueryClients = new sseMW.Topic();
 
 app.use(express.static(__dirname + '/public'));
 
@@ -43,13 +76,12 @@ app.get('/about', function (req, res) {
 // Connection property to the request
 app.use(sseMW.sseMiddleware)
 
-// initial registration of SSE Client Connection
-app.get('/jobStatus/updates', function(req,res){
+function createConn(req,res) {
     var topics = req.query.topicString;
     var clientConf = {topics: []};
 
     for (var i = 0; i < conf.kafkaTopics.length; i++) {
-        if (topics == null){
+        if (topics == null) {
             clientConf.topics.push(conf.kafkaTopics[i].topic);
         } else {
             var spl = topics.split(",");
@@ -63,19 +95,20 @@ app.get('/jobStatus/updates', function(req,res){
 
     var sseConnection = res.sseConnection;
     sseConnection.setup();
-    sseClients.add(sseConnection, clientConf);
-    //TODO add initialisation from query
-} );
+    return { conn: sseConnection, conf: clientConf};
+}
 
 var m;
 
-//send message to all registered SSE clients
-updateSseClients = function(message, msgTopic) {
+//send message to set of clients
+updateSseClients = function(message, msgTopic, clients) {
     this.m=message;
     this.t=msgTopic;
-    sseClients.forEach(
+    //sseClients.forEach(
+    clients.forEach(
         function(sseConnection, arrayInd) {
-            if (this.t == null || sseClients.topicInConnConfig(arrayInd, this.t)) {
+            //if (this.t == null || sseClients.topicInConnConfig(arrayInd, this.t)) {
+            if (this.t == null || clients.topicInConnConfig(arrayInd, this.t)) {
                 console.log("Sending message from client " + this.t + " to client " + arrayInd);
                 sseConnection.send(this.m);
             } else {
@@ -87,12 +120,58 @@ updateSseClients = function(message, msgTopic) {
     ); //forEach
 }// updateSseClients
 
+// initial registration of SSE Client Connection for messages
+if (args.MESSAGE_SERVER) {
+    app.get('/jobStatus/updates', function(req,res){
+        var newConf = createConn(req, res);
+        sseClients.add(newConf.conn, newConf.conf, 'MESSAGE');
+    } );
+
+    function handleMessage(msg) {
+        //TODO be able to handle delimited messages - translate to JSON based on schema in the config
+        //TODO be able to handle avro messages - translate to JSON
+        //var top3 = JSON.parse(msg.value);
+        //top3.continent = new Buffer(msg.key).toString('ascii');
+        //updateSseClients( top3);
+        //console.log("Full msg: "+JSON.stringify(msg));
+
+        var msgVal = JSON.parse(msg.value);
+        var metaVal = {};
+        var tsCol = '';
+
+        for (var i = 0; i < conf.kafkaTopics.length; i++) {
+            if (conf.kafkaTopics[i].topic === msg.topic) {
+                tsCol = conf.kafkaTopics[i].timestampCol || '';
+            }
+        }
+        for (k in msgVal){
+            if (k === tsCol){
+                metaVal['timestampCol'] = k;
+                metaVal['timestampVal'] =  msgVal[k];
+            }
+        }
+        console.log(metaVal);
+        var outMsg = {topic: msg.topic, metadata: JSON.stringify(metaVal), value: msg.value};
+        //console.log("Output msg: "+JSON.stringify(outMsg));
+        updateSseClients(outMsg, msg.topic, sseClients);
+    }// handleMessage
+}
+
+// initial registration of SSE Client Connection for queries
+if (args.QUERY_SERVER) {
+    app.get('/jobStatus/init', function(req,res){
+        var newConf = createConn(req, res);
+        sseQueryClients.add(newConf.conn, newConf.conf, 'QUERY');
+    } );
+}
+
 // send a heartbeat signal to all SSE clients, once every interval seconds (or every 3 seconds
 // if no interval is specified)
 initHeartbeat = function(interval) {
     setInterval(function()  {
             var msg = {"label":"The latest", "time":new Date()};
-            updateSseClients(msg);
+            updateSseClients(msg,null,sseClients);
+            updateSseClients(msg, null, sseQueryClients);
         }//interval function
         , interval?interval*1000:3000
     ); // setInterval
@@ -101,53 +180,3 @@ initHeartbeat = function(interval) {
 // initialize heartbeat at x second interval
 initHeartbeat(30);
 
-// Configure Kafka Consumer
-var consumer = new Consumer(
-    client,
-    [],
-    {fromOffset: true}
-);
-
-consumer.on('message', function (message) {
-    handleMessage(message);
-});
-
-consumer.on('error', function(err) {
-    console.log("ERROR: " + err.message);
-});
-
-var topicString = [];
-for (var i = 0; i < conf.kafkaTopics.length; i++) {
-    topicString.push({topic: conf.kafkaTopics[i].topic, partition: 0, offset: 0});
-}
-
-consumer.addTopics(topicString, () => console.log("Topics added"));
-
-function handleMessage(msg) {
-    //TODO be able to handle delimited messages - translate to JSON based on schema in the config
-    //TODO be able to handle avro messages - translate to JSON
-    //var top3 = JSON.parse(msg.value);
-    //top3.continent = new Buffer(msg.key).toString('ascii');
-    //updateSseClients( top3);
-    //console.log("Full msg: "+JSON.stringify(msg));
-
-    var msgVal = JSON.parse(msg.value);
-    var metaVal = {};
-    var tsCol = '';
-
-    for (var i = 0; i < conf.kafkaTopics.length; i++) {
-        if (conf.kafkaTopics[i].topic === msg.topic) {
-            tsCol = conf.kafkaTopics[i].timestampCol || '';
-        }
-    }
-    for (k in msgVal){
-        if (k === tsCol){
-            metaVal['timestampCol'] = k;
-            metaVal['timestampVal'] =  msgVal[k];
-        }
-    }
-    console.log(metaVal);
-    var outMsg = {topic: msg.topic, metadata: JSON.stringify(metaVal), value: msg.value};
-    //console.log("Output msg: "+JSON.stringify(outMsg));
-    updateSseClients(outMsg, msg.topic);
-}// handleMessage

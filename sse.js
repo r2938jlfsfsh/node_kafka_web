@@ -43,12 +43,12 @@ var Topic = (function () {
         this.connections = [];
         this.configs = [];
     }
-    Topic.prototype.add = function (conn, conf) {
+    Topic.prototype.add = function (conn, conf, clientType) {
         var connections = this.connections;
         var configs = this.configs;
         connections.push(conn);
         configs.push(conf);
-        console.log('New client connected, config: ' + JSON.stringify(conf) + ', now: ', connections.length);
+        console.log('New ' + clientType + ' client connected, config: ' + JSON.stringify(conf) + ', now: ', connections.length);
 
         conn.res.on('close', function () {
             var i = connections.indexOf(conn);
