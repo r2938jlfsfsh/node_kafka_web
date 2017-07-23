@@ -13,5 +13,16 @@ module.exports = {
     // TODO should have this as a full config - maybe need other actions depending on the topic
     //      like adding a unique key based on other fields
     //      converting from ? to JSON etc
-    kafkaTopics: [{topic: "jobStatusX"}, {topic: "jobStatus"}]
+    kafkaTopics: [
+        {
+            topic: "jobStatusX",
+            timestampCol: "_msgTimestamp",
+            initQueryRef: "fnInit_JobStatusX"
+        },
+        {
+            topic: "jobStatus",
+            timestampCol: "_msgTimestamp",
+            initQueryRef: "fnInit_JobStatus"
+        }
+        ]
 };

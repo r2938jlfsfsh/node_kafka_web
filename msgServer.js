@@ -118,14 +118,30 @@ for (var i = 0; i < conf.kafkaTopics.length; i++) {
 consumer.addTopics(topicString, () => console.log("Topics added"));
 
 function handleMessage(msg) {
-    //TODO be able to handle delimited messages - translate to JSON based on pre-defined schema
+    //TODO be able to handle delimited messages - translate to JSON based on schema in the config
     //TODO be able to handle avro messages - translate to JSON
     //var top3 = JSON.parse(msg.value);
     //top3.continent = new Buffer(msg.key).toString('ascii');
     //updateSseClients( top3);
     //console.log("Full msg: "+JSON.stringify(msg));
 
-    var outMsg = {topic: msg.topic, value: msg.value};
+    var msgVal = JSON.parse(msg.value);
+    var metaVal = {};
+    var tsCol = '';
+
+    for (var i = 0; i < conf.kafkaTopics.length; i++) {
+        if (conf.kafkaTopics[i].topic === msg.topic) {
+            tsCol = conf.kafkaTopics[i].timestampCol || '';
+        }
+    }
+    for (k in msgVal){
+        if (k === tsCol){
+            metaVal['timestampCol'] = k;
+            metaVal['timestampVal'] =  msgVal[k];
+        }
+    }
+    console.log(metaVal);
+    var outMsg = {topic: msg.topic, metadata: JSON.stringify(metaVal), value: msg.value};
     //console.log("Output msg: "+JSON.stringify(outMsg));
     updateSseClients(outMsg, msg.topic);
 }// handleMessage

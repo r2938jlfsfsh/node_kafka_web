@@ -7,12 +7,6 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>
-        // assume that API service is published on same server that is the server of this HTML file
-        // send event to SSE stream
-        /* "{\"nrs\":[{\"code\":\"FR\",\"name\":\"France\",\"population\":66836154,\"size\":643801,\"continent\":\"Europe\"},{\"code\":\"DE\",\"name\":\"Germany\",\"population\":80722792,\"size\":357022,\"continent\":\"Europe\"},{\"code\":\"FI\",\"name\":\"Finland\",\"population\":5498211,\"size\":338145,\"continent\":\"Europe\"},null]}"
-    update all Sse Client with message {"nrs":[{"code":"FR","name":"France","population":66836154,"size":643801,"continent":"Europe"},{"code":"DE","name":"Germany","population":80722792,"size":357022,"continent":"Europe"},{"code":"FI","name":"Finland","population":5498211,"size":338145,"continent":"Europe"},null]}
-    */
-
         var srch = window.location.search;
         var source = new EventSource("../jobStatus/updates" + srch);
         source.onmessage = function(event) {
@@ -28,11 +22,11 @@
             var tableArea = document.getElementById("tableArea");
             var msg = JSON.parse(event.data);
             if (msg.topic) {
-                //logArea.innerHTML = msg.topic + "<br>" + msg.value + "<br>" + logArea.innerHTML;
-                writeLog(msg.topic + "<br>" + msg.value);
+                writeLog(msg.topic + "<br>" + msg.value + "<br>" + msg.metadata);
                 var msgVal = JSON.parse(msg.value);
                 var tblID = "table_"+msg.topic;
-                writeLog("Parsed value: " + msgVal);
+                var msgMetadata = JSON.parse(msg.metadata);
+                writeLog("Parsed value: " + JSON.stringify(msgVal));
                 if (document.getElementById(tblID) == null) {
                     writeLog("Creating table");
                     var table = document.createElement('table');
@@ -41,11 +35,17 @@
                     var col = 0;
                     for (var k in msgVal){
                         if (col == 0) {
-                            table.setAttribute('keyFieldName',k)
+                            table.setAttribute('keyFieldName',k);
                         }
-                        writeLog("Doing key " + k);
+                        //writeLog('Comparing ' + msgMetadata.timestampCol + ' with ' + k);
+                        if (msgMetadata.timestampCol === k) {
+                            writeLog("Adding key " + k + ' as timestamp attribute');
+                            table.setAttribute('timestampFieldName',k);
+                        }
+                        //writeLog("Doing key " + k);
                         row.appendChild(document.createElement('th'));
                         row.cells[col].appendChild(document.createTextNode(k));
+                        //}
                         col++;
                     }
                     table.appendChild(row);
@@ -98,6 +98,6 @@
 <div id="lastUpdate">
     <p>Last server heartbeat received: </p>
 </div>
-<div id="logArea" style="visibility: hidden"></div>
+<div id="logArea" style="visibility: visible"></div>
 </body>
 </html>
