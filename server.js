@@ -2,9 +2,15 @@ var express = require('express')
     , http = require('http')
     , sseMW = require('./sse')
     , conf = require('./config')
-    , bodyParser = require('body-parser');
+    , bodyParser = require('body-parser')
+    , sharedLib = require('./sharedLib')
+    , kafka = require('kafka-node');
 
-var kafka = require('kafka-node');
+var args = sharedLib.processArgs(process.argv);
+
+console.log("Args: " + JSON.stringify(args));
+console.log('Server type is ' + args.SERVER_TYPE);
+
 var Consumer = kafka.Consumer;
 
 var client = new kafka.Client(conf.ZOOKEEPER_CONN);
@@ -15,8 +21,8 @@ app.use(bodyParser.json());
 
 var server = http.createServer(app);
 
-server.listen(conf.LISTEN_PORT, function () {
-    console.log('Server running, version '+conf.APP_VERSION+', Express is listening... at '+ conf.LISTEN_PORT);
+server.listen(conf.MSG_LISTEN_PORT, function () {
+    console.log('Message server running, version '+conf.APP_VERSION+', Express is listening... at '+ conf.MSG_LISTEN_PORT);
 });
 
 // Realtime updates

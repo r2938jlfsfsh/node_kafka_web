@@ -2,10 +2,12 @@
 
 console.log("Loading config.js");
 
-const DEFAULT_PORT = 3000;
+const DEFAULT_MSG_PORT = 3000;
+const DEFAULT_QRY_PORT = 3001;
 
 module.exports = {
-    LISTEN_PORT: process.env.PORT || DEFAULT_PORT,
+    MSG_LISTEN_PORT: process.env.MSG_PORT || DEFAULT_MSG_PORT,
+    QRY_LISTEN_PORT: process.env.QRY_PORT || DEFAULT_QRY_PORT,
     APP_VERSION: '0.9',
     //Note this is zookeeper, not broker:
     ZOOKEEPER_CONN: process.env.ZOOKEEPER_CONN || "localhost:32181/",
