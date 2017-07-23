@@ -18,8 +18,7 @@ module.exports = {
     kafkaTopics: [
         {
             topic: "jobStatusX",
-            timestampCol: "_msgTimestamp",
-            initQueryConf: {}
+            timestampCol: "_msgTimestamp"
         },
         {
             topic: "jobStatus",

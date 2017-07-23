@@ -36,6 +36,7 @@ var Connection = (function () {
 
 exports.Connection = Connection;
 
+// Wrap a connection object up with its configuration
 var ConnectionWrapper = (function () {
     function ConnectionWrapper(conn, conf) {
         this.connection = conn;
@@ -64,21 +65,20 @@ var Topic = (function () {
         this.serverType = serverType || 'UNKNOWN';
         console.log("Created new connection bundle of type " + this.serverType);
     }
-    Topic.prototype.add = function (conn, conf) {
+    Topic.prototype.add = function (connWrapper) {
         var connections = this.connections;
         var serverType = this.serverType;
-        connections.push(new ConnectionWrapper(conn,conf));
-        console.log('New ' + this.serverType + ' client connected, config: ' + JSON.stringify(conf) + ', now: ', connections.length);
+        connections.push(connWrapper);
+        console.log('New ' + this.serverType + ' client connected, config: ' + JSON.stringify(connWrapper.conf) + ', now: ', connections.length);
 
-        conn.res.on('close', function () {
+        connWrapper.connection.res.on('close', function () {
             for(var i = 0; i < connections.length; i++){
-                if (connections[i].connection == conn){
+                if (connections[i].connection == connWrapper.connection){
                     connections.splice(i, 1);
                 }
             }
             console.log(serverType + ' client disconnected, now: ', connections.length);
         });
-
     };
 
     Topic.prototype.forEach = function (cb) {

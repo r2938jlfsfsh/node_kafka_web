@@ -4,7 +4,7 @@ var express = require('express')
     , sharedLib = require('./sharedLib')
     , conf = require('./config')
     , bodyParser = require('body-parser')
-    //, sql = require('sqlLib')
+    //, sql = require('sqlite3').verbose() //TODO turn verbose off
 ;
 
 var args = sharedLib.processArgs(process.argv);
@@ -47,9 +47,9 @@ if (args.MESSAGE_SERVER) {
     var sseClients = new sseMW.Topic('MESSAGE');
 }
 
-// Initialise queries if we're a query server:
+// Initialise required databases if we're a query server:
 if (args.QUERY_SERVER) {
-    // Query clients, expected to be shortlived:
+    // Query clients, these are expected to be shortlived:
     var sseQueryClients = new sseMW.Topic('QUERY');
 }
 
@@ -97,7 +97,8 @@ function createConn(req,res) {
 
     var sseConnection = res.sseConnection;
     sseConnection.setup();
-    return {conn: sseConnection, conf: clientConf};
+    var connWrapper = new sseMW.ConnectionWrapper(sseConnection,clientConf);
+    return connWrapper;
 }
 
 //var m;
@@ -126,16 +127,12 @@ updateSseClients = function(message, msgTopic, clients) {
 if (args.MESSAGE_SERVER) {
     app.get('/jobStatus/updates', function(req,res){
         var newConn = createConn(req, res);
-        sseClients.add(newConn.conn, newConn.conf);
+        sseClients.add(newConn);
     } );
 
     function handleMessage(msg) {
         //TODO be able to handle delimited messages - translate to JSON based on schema in the config
         //TODO be able to handle avro messages - translate to JSON
-        //var top3 = JSON.parse(msg.value);
-        //top3.continent = new Buffer(msg.key).toString('ascii');
-        //updateSseClients( top3);
-        //console.log("Full msg: "+JSON.stringify(msg));
 
         var msgVal = JSON.parse(msg.value);
         var metaVal = {};
@@ -164,12 +161,16 @@ if (args.MESSAGE_SERVER) {
 // initial registration of SSE Client Connection for queries
 if (args.QUERY_SERVER) {
     app.get('/jobStatus/init', function(req,res){
-        var newConf = createConn(req, res);
-        sseQueryClients.add(newConf.conn, newConf.conf, 'QUERY');
-
-        // TODO First change connection and conf to be part of the same object, it'll make everything easier.
+        var conn = createConn(req, res);
+        sseQueryClients.add(conn);
 
         // TODO start the background query for each topic they subscribed to
+        for (var i = 0; i < conf.kafkaTopics.length; i++){
+            if (conn.topicSubscribed(conf.kafkaTopics[i].topic)){
+                console.log('New consumer is subscribed to topic ' + conf.kafkaTopics[i].topic + '; starting init query');
+
+            }
+        }
         // TODO Do one at a time or in parallel?  Start with one-at-a-time.
 
     } );
