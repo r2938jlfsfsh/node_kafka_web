@@ -18,7 +18,15 @@ module.exports = {
     kafkaTopics: [
         {
             topic: "jobStatusX",
-            timestampCol: "_msgTimestamp"
+            timestampCol: "_msgTimestamp",
+            initQueryConf: {
+                dbType: 'sqlite3',
+                dbConf: {
+                    filename: '/home/rd/WebstormProjects/db/sqllite.db',
+                    // TODO Add process date placeholder
+                    query: "select * from job_status_vw order by job_name desc"
+                }
+            }
         },
         {
             topic: "jobStatus",
@@ -26,9 +34,9 @@ module.exports = {
             initQueryConf: {
                 dbType: 'sqlite3',
                 dbConf: {
-                    filename: 'sqllite.db',
+                    filename: '/home/rd/WebstormProjects/db/sqllite.db',
                     // TODO Add process date placeholder
-                    query: "select * from jobStatus_vw"
+                    query: "select * from job_status_vw order by job_name"
                 }
             }
         }

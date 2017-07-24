@@ -4,7 +4,7 @@ var express = require('express')
     , sharedLib = require('./sharedLib')
     , conf = require('./config')
     , bodyParser = require('body-parser')
-    //, sql = require('sqlite3').verbose() //TODO turn verbose off
+    , sqlLib = require('./sqlLib')
 ;
 
 var args = sharedLib.processArgs(process.argv);
@@ -101,7 +101,38 @@ function createConn(req,res) {
     return connWrapper;
 }
 
-//var m;
+function formatMessage(msg, topic, type) {
+    var msgVal;
+    var metaVal = {};
+    var tsCol;
+
+    switch(type){
+        //TODO be able to handle delimited messages - translate to JSON based on schema in the config
+        //TODO be able to handle avro messages - translate to JSON
+        case 'JSON':
+            msgVal = JSON.parse(msg);
+            break;
+        default:
+            console.log("ERROR: unsupported message type in formatMessage: " + type);
+            return null;
+    }
+
+    for (var i = 0; i < conf.kafkaTopics.length; i++) {
+        if (conf.kafkaTopics[i].topic === topic) {
+            tsCol = conf.kafkaTopics[i].timestampCol;
+        }
+    }
+    if (tsCol) {
+        for (k in msgVal) {
+            if (k === tsCol) {
+                metaVal['timestampCol'] = k;
+                metaVal['timestampVal'] = msgVal[k];
+            }
+        }
+    }
+    //console.log(metaVal);
+    return {topic: topic, metadata: JSON.stringify(metaVal), value: msg};
+}// formatMessage
 
 //send message to set of clients
 updateSseClients = function(message, msgTopic, clients) {
@@ -109,14 +140,19 @@ updateSseClients = function(message, msgTopic, clients) {
     this.t=msgTopic;
     //sseClients.forEach(
     clients.forEach(
-        function(connWrapper, arrayInd) {
-            //XXif (this.t == null || clients.topicInConnConfig(arrayInd, this.t)) {
-            if (this.t == null || connWrapper.topicSubscribed(this.t)) {
-                console.log("Sending message from client " + this.t + " to client " + arrayInd);
-                connWrapper.send(this.m);
+        function(connWrapper) {
+            //if (this.t === "__HEARTBEAT") {
+                connWrapper.send(this.m, this.t);
+/*
             } else {
-                console.log("Skipping sending message from topic " + this.t + " to client " + arrayInd);
+                if (connWrapper.topicSubscribed(this.t)) {
+                    console.log("Sending message from topic " + this.t + " to client " + arrayInd);
+                    connWrapper.send(this.m);
+                } else {
+                    console.log("Skipping sending message from topic " + this.t + " to client " + arrayInd);
+                }
             }
+*/
         }
         , this // this second argument to forEach is the thisArg
         // (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach)
@@ -133,27 +169,9 @@ if (args.MESSAGE_SERVER) {
     function handleMessage(msg) {
         //TODO be able to handle delimited messages - translate to JSON based on schema in the config
         //TODO be able to handle avro messages - translate to JSON
-
-        var msgVal = JSON.parse(msg.value);
-        var metaVal = {};
-        var tsCol;
-
-        for (var i = 0; i < conf.kafkaTopics.length; i++) {
-            if (conf.kafkaTopics[i].topic === msg.topic) {
-                tsCol = conf.kafkaTopics[i].timestampCol;
-            }
-        }
-        if (tsCol) {
-            for (k in msgVal) {
-                if (k === tsCol) {
-                    metaVal['timestampCol'] = k;
-                    metaVal['timestampVal'] = msgVal[k];
-                }
-            }
-        }
-        console.log(metaVal);
-        var outMsg = {topic: msg.topic, metadata: JSON.stringify(metaVal), value: msg.value};
-        //console.log("Output msg: "+JSON.stringify(outMsg));
+        //TODO Should be able to get this from the head of the msg??  Get rid of hardcoded JSON
+        var outMsg = formatMessage(msg.value, msg.topic, 'JSON');
+        //console.log("New output: "+JSON.stringify(newOutMsg));
         updateSseClients(outMsg, msg.topic, sseClients);
     }// handleMessage
 }
@@ -163,19 +181,10 @@ if (args.QUERY_SERVER) {
     app.get('/jobStatus/init', function(req,res){
         var conn = createConn(req, res);
         sseQueryClients.add(conn);
-
-        // TODO start the background query for each topic they subscribed to
-        for (var i = 0; i < conf.kafkaTopics.length; i++){
-            if (conn.topicSubscribed(conf.kafkaTopics[i].topic)){
-                console.log('New consumer is subscribed to topic ' + conf.kafkaTopics[i].topic + '; starting init query');
-
-            }
-        }
-        // TODO Do one at a time or in parallel?  Start with one-at-a-time.
-
+        sqlLib.runClientQueries(conn, conf.kafkaTopics);
     } );
-/*
 
+/*
     function handleQueryResults(data, client, endInd){
         // data should be an array of comma+quote delimited messages
 
@@ -199,10 +208,10 @@ initHeartbeat = function(interval) {
     setInterval(function()  {
             var msg = {"label":"The latest", "time":new Date()};
             if (args.MESSAGE_SERVER) {
-                updateSseClients(msg, null, sseClients);
+                updateSseClients(msg, "__HEARTBEAT", sseClients);
             }
             if (args.QUERY_SERVER) {
-                updateSseClients(msg, null, sseQueryClients);
+                updateSseClients(msg, "__HEARTBEAT", sseQueryClients);
             }
         }//interval function
         , interval?interval*1000:3000
@@ -210,5 +219,5 @@ initHeartbeat = function(interval) {
 }//initHeartbeat
 
 // initialize heartbeat at x second interval
-initHeartbeat(30);
+initHeartbeat(3);
 

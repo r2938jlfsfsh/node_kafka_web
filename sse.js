@@ -18,6 +18,7 @@ var Connection = (function () {
         console.log(" sseMiddleware construct connection for response ");
 
         this.res = res;
+        this.messageCount = 0;
     }
     Connection.prototype.setup = function () {
         console.log("set up SSE stream for response");
@@ -28,7 +29,8 @@ var Connection = (function () {
         });
     };
     Connection.prototype.send = function (data) {
-        console.log("send event to SSE stream "+JSON.stringify(data));
+        //console.log("send event to SSE stream "+JSON.stringify(data));
+        this.messageCount++;
         this.res.write("data: " + JSON.stringify(data) + "\n\n");
     };
     return Connection;
@@ -48,8 +50,17 @@ var ConnectionWrapper = (function () {
         return topInd >= 0;
     }
 
-    ConnectionWrapper.prototype.send = function(msg) {
-        this.connection.send(msg);
+    ConnectionWrapper.prototype.send = function(msg, topic) {
+        if (topic === "__HEARTBEAT") {
+            var newMsg = msg;
+            newMsg["messageCount"] = this.connection.messageCount;
+            console.log("Sending heartbeat message: " + JSON.stringify(newMsg));
+            this.connection.send(newMsg);
+        } else {
+            if (this.topicSubscribed(topic)) {
+                this.connection.send(msg);
+            }
+        }
     }
 
     return ConnectionWrapper;
