@@ -6,7 +6,7 @@ var sharedLib = require('./sharedLib')
     , conf = require('./config');
 
 var async = require('async')
-    , sqlite3 = require('sqlite3').verbose() //TODO turn verbose off
+    , sqlite3 = require('sqlite3')
 ;
 
 function runClientQueries(conn, topicConf){

@@ -122,9 +122,7 @@ if (args.MESSAGE_SERVER) {
     } );
 
     function handleMessage(msg) {
-        //TODO be able to handle delimited messages - translate to JSON based on schema in the config
-        //TODO be able to handle avro messages - translate to JSON
-        //TODO Should be able to get this from the head of the msg??  Get rid of hardcoded JSON
+        //TODO Should be able to get message format from the head of the msg, rather than hardcoded JSON
         var outMsg = sharedLib.formatMessage(msg.value, msg.topic, 'JSON', conf);
         //console.log("New output: "+JSON.stringify(outMsg));
         updateSseClients(outMsg, msg.topic, sseClients);
@@ -139,6 +137,8 @@ if (args.QUERY_SERVER) {
         sqlLib.runClientQueries(conn, conf.kafkaTopics);
     });
 }
+
+// TODO should check for a new version of the config periodically so doesn't need restarting
 
 // send a heartbeat signal to all SSE clients, once every interval seconds (or every 3 seconds
 // if no interval is specified)
@@ -157,5 +157,5 @@ initHeartbeat = function(interval) {
 }; //initHeartbeat
 
 // initialize heartbeat at x second interval
-initHeartbeat(10);
+initHeartbeat(30);
 

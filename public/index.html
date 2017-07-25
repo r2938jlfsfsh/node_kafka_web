@@ -16,77 +16,104 @@
             }
         };
 
+        //TODO Add a filtering capability.
         var processEvent = function (event, src){
             //var logArea = document.getElementById("logArea");
             var tableArea = document.getElementById("tableArea");
             var msg = JSON.parse(event.data);
+            var row;
             if (msg.topic) {
                 writeLog(msg.topic + "<br>" + msg.value + "<br>" + msg.metadata);
                 var msgVal = JSON.parse(msg.value);
                 var tblID = "table_"+msg.topic;
                 var msgMetadata = JSON.parse(msg.metadata);
-                writeLog("Parsed value: " + JSON.stringify(msgVal));
+                //writeLog("Parsed value: " + JSON.stringify(msgVal));
                 if (document.getElementById(tblID) == null) {
                     writeLog("Creating table");
                     var table = document.createElement('table');
+                    //TODO Add a heading for the table
                     table.id = tblID;
-                    var row = document.createElement('tr');
+                    if (msgMetadata.timestampCol) {
+                        table.setAttribute('timestampFieldName',msgMetadata.timestampCol);
+                    }
+                    row = document.createElement('tr');
                     var col = 0;
                     for (var k in msgVal){
                         if (col == 0) {
+                            // TODO Should get this in metadata rather than just col 0
                             table.setAttribute('keyFieldName',k);
-                        }
-                        //writeLog('Comparing ' + msgMetadata.timestampCol + ' with ' + k);
-                        if (msgMetadata.timestampCol === k) {
-                            writeLog("Adding key " + k + ' as timestamp attribute');
-                            table.setAttribute('timestampFieldName',k);
                         }
                         //writeLog("Doing key " + k);
                         row.appendChild(document.createElement('th'));
                         row.cells[col].appendChild(document.createTextNode(k));
-                        //}
                         col++;
                     }
                     table.appendChild(row);
                     tableArea.appendChild(table);
+                    tableArea.appendChild(document.createElement('br'));
                 } else {
                     writeLog("Found existing table");
                 }
 
                 var t = document.getElementById(tblID);
+                var thisRow;
                 var rowID = tblID + "._." + msgVal[t.getAttribute('keyFieldName')];
                 writeLog("Row ID will be: " + rowID);
 
                 if (document.getElementById(rowID) != null){
                     var r = document.getElementById(rowID);
                     var colNum = 0;
-                    // TODO timestamp comparison.
-                    for (var k in msgVal) {
-                        // TODO check for null:
-                        // if (data[member] != null)
-                        r.cells[colNum].innerHTML = msgVal[k];
-                        colNum++;
+                    var prevTS = 0,
+                        newTS = 99999999999999999;
+                    var tsCol = t.getAttribute('timestampFieldName');
+                    if (tsCol) {
+                        prevTS = r.getAttribute('lastUpdateTimestamp');
+                        if (prevTS == null){
+                            prevTS = 0;
+                        }
+                        if (msgMetadata.timestampVal) {
+                            newTS = msgMetadata.timestampVal;
+                        }
                     }
-
+                    writeLog("Comparing newTS of " + newTS + " with prevTS of " + prevTS);
+                    if (newTS > prevTS) {
+                        for (var k in msgVal) {
+                            // TODO check for null:
+                            // if (data[member] != null)
+                            r.cells[colNum].innerHTML = msgVal[k];
+                            colNum++;
+                        }
+                        r.setAttribute('lastUpdateTimestamp', newTS);
+                    }
+                    thisRow = r;
                 } else {
                     var rowToInsert;
                     // Loop through the rows until we find the one that is alphabetically after the one we're inserting
-                    // If the row doesn't exist it'll create it.
-                    for (var rowToInsert = 1, row; row = t.rows[rowToInsert] && t.rows[rowToInsert].id < rowID; rowToInsert++){
-                        ;
+                    for (rowToInsert = 1; row = t.rows[rowToInsert] && t.rows[rowToInsert].id < rowID; rowToInsert++){
+                        // Nothing to do here
                     }
 
                     var newRow = t.insertRow(rowToInsert);
                     newRow.id = rowID;
                     var colNum = 0;
+
                     for (var k in msgVal) {
                         newRow.appendChild(document.createElement('td'));
                         newRow.cells[colNum].appendChild(document.createTextNode(msgVal[k]));
+                        if (msgMetadata.timestampVal) {
+                            newRow.setAttribute('lastUpdateTimestamp', msgMetadata.timestampVal);
+                        }
                         colNum++;
                     }
+                    thisRow = newRow;
                 }
 
                 //TODO add highlighting of the row, green/red/yellow based on status
+                if (msgMetadata.rowColour) {
+                    thisRow.bgColor = msgMetadata.rowColour;
+                } else {
+                    thisRow.bgColor = 'white';
+                }
 
             } else {
                 var txt = JSON.parse(event.data);
@@ -96,7 +123,8 @@
                     writeLog("Closed the query source connection");
                 } else {
                     var lu = document.getElementById("lastUpdate");
-                    lu.innerHTML = "Last server heartbeat received: " + txt.time;
+                    //TODO format the time for local time
+                    lu.innerHTML = "Last server heartbeat sent: " + txt.time;
                     writeLog("Received " + src + " heartbeat: " + JSON.stringify(txt));
                 }
             } // if there's a topic
@@ -119,6 +147,6 @@
 <div id="lastUpdate">
     <p>Last server heartbeat received: </p>
 </div>
-<div id="logArea" style="visibility: visible"></div>
+<div id="logArea" style="visibility: hidden"></div>
 </body>
 </html>

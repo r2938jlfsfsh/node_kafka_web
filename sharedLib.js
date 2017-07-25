@@ -74,6 +74,15 @@ function formatMessage(msg, topic, type, conf) {
         }
     }
 
+    //TODO remove this hack
+    switch (msgVal['status']) {
+        case 'ENDED_OK':
+            metaVal['rowColour'] = 'green';
+            break;
+        case 'FAILED':
+            metaVal['rowColour'] = 'red';
+            break;
+    }
     //console.log(metaVal);
     return {topic: topic, metadata: JSON.stringify(metaVal), value: msg};
 }// formatMessage
