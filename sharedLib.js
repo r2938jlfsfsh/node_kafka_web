@@ -33,3 +33,48 @@ function processArgs(args){
 }
 exports.processArgs = processArgs;
 
+function pad(pad, str, padLeft) {
+    if (typeof str === 'undefined')
+        return pad;
+    if (padLeft) {
+        return (pad + str).slice(-pad.length);
+    } else {
+        return (str + pad).substring(0, pad.length);
+    }
+}
+
+function formatMessage(msg, topic, type, conf) {
+    var msgVal;
+    var metaVal = {};
+    var tsCol;
+
+    switch(type){
+        //TODO be able to handle delimited messages - translate to JSON based on schema in the config
+        //TODO be able to handle avro messages - translate to JSON
+        case 'JSON':
+            msgVal = JSON.parse(msg);
+            break;
+        default:
+            console.log("ERROR: unsupported message type in formatMessage: " + type);
+            return null;
+    }
+
+    for (var i = 0; i < conf.kafkaTopics.length; i++) {
+        if (conf.kafkaTopics[i].topic === topic) {
+            tsCol = conf.kafkaTopics[i].timestampCol;
+        }
+    }
+    if (tsCol) {
+        for (var k in msgVal) {
+            if (k === tsCol) {
+                metaVal['timestampCol'] = k;
+                // Pad the timestamp out to include milliseconds to make comparisons easier
+                metaVal['timestampVal'] = pad("00000000000000000", msgVal[k], false);
+            }
+        }
+    }
+
+    //console.log(metaVal);
+    return {topic: topic, metadata: JSON.stringify(metaVal), value: msg};
+}// formatMessage
+exports.formatMessage = formatMessage;

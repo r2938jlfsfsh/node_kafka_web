@@ -24,7 +24,7 @@ module.exports = {
                 dbConf: {
                     filename: '/home/rd/WebstormProjects/db/sqllite.db',
                     // TODO Add process date placeholder
-                    query: "select * from job_status_vw order by job_name desc"
+                    query: "select * from job_status_vw where length(job_name) < 5 order by job_name desc"
                 }
             }
         },
@@ -36,7 +36,7 @@ module.exports = {
                 dbConf: {
                     filename: '/home/rd/WebstormProjects/db/sqllite.db',
                     // TODO Add process date placeholder
-                    query: "select * from job_status_vw order by job_name"
+                    query: "select * from job_status_vw where length(job_name) < 5 order by job_name"
                 }
             }
         }

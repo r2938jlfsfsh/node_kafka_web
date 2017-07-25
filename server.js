@@ -97,67 +97,22 @@ function createConn(req,res) {
 
     var sseConnection = res.sseConnection;
     sseConnection.setup();
-    var connWrapper = new sseMW.ConnectionWrapper(sseConnection,clientConf);
-    return connWrapper;
+    return new sseMW.ConnectionWrapper(sseConnection,clientConf);
 }
 
-function formatMessage(msg, topic, type) {
-    var msgVal;
-    var metaVal = {};
-    var tsCol;
-
-    switch(type){
-        //TODO be able to handle delimited messages - translate to JSON based on schema in the config
-        //TODO be able to handle avro messages - translate to JSON
-        case 'JSON':
-            msgVal = JSON.parse(msg);
-            break;
-        default:
-            console.log("ERROR: unsupported message type in formatMessage: " + type);
-            return null;
-    }
-
-    for (var i = 0; i < conf.kafkaTopics.length; i++) {
-        if (conf.kafkaTopics[i].topic === topic) {
-            tsCol = conf.kafkaTopics[i].timestampCol;
-        }
-    }
-    if (tsCol) {
-        for (k in msgVal) {
-            if (k === tsCol) {
-                metaVal['timestampCol'] = k;
-                metaVal['timestampVal'] = msgVal[k];
-            }
-        }
-    }
-    //console.log(metaVal);
-    return {topic: topic, metadata: JSON.stringify(metaVal), value: msg};
-}// formatMessage
 
 //send message to set of clients
 updateSseClients = function(message, msgTopic, clients) {
     this.m=message;
     this.t=msgTopic;
-    //sseClients.forEach(
     clients.forEach(
         function(connWrapper) {
-            //if (this.t === "__HEARTBEAT") {
                 connWrapper.send(this.m, this.t);
-/*
-            } else {
-                if (connWrapper.topicSubscribed(this.t)) {
-                    console.log("Sending message from topic " + this.t + " to client " + arrayInd);
-                    connWrapper.send(this.m);
-                } else {
-                    console.log("Skipping sending message from topic " + this.t + " to client " + arrayInd);
-                }
-            }
-*/
         }
         , this // this second argument to forEach is the thisArg
         // (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach)
     ); //forEach
-}// updateSseClients
+}; // updateSseClients
 
 // initial registration of SSE Client Connection for messages
 if (args.MESSAGE_SERVER) {
@@ -170,36 +125,19 @@ if (args.MESSAGE_SERVER) {
         //TODO be able to handle delimited messages - translate to JSON based on schema in the config
         //TODO be able to handle avro messages - translate to JSON
         //TODO Should be able to get this from the head of the msg??  Get rid of hardcoded JSON
-        var outMsg = formatMessage(msg.value, msg.topic, 'JSON');
-        //console.log("New output: "+JSON.stringify(newOutMsg));
+        var outMsg = sharedLib.formatMessage(msg.value, msg.topic, 'JSON', conf);
+        //console.log("New output: "+JSON.stringify(outMsg));
         updateSseClients(outMsg, msg.topic, sseClients);
     }// handleMessage
 }
 
 // initial registration of SSE Client Connection for queries
 if (args.QUERY_SERVER) {
-    app.get('/jobStatus/init', function(req,res){
+    app.get('/jobStatus/init', function (req, res) {
         var conn = createConn(req, res);
         sseQueryClients.add(conn);
         sqlLib.runClientQueries(conn, conf.kafkaTopics);
-    } );
-
-/*
-    function handleQueryResults(data, client, endInd){
-        // data should be an array of comma+quote delimited messages
-
-        // Go through each record in the array
-        data.forEach(function(record, client){
-            // Transform into JSON
-
-            // Send to the client
-        });
-
-        if (endInd){
-            // Send end-of-data indicator for this client, so they close the Query connection.
-        }
-    }
-    */
+    });
 }
 
 // send a heartbeat signal to all SSE clients, once every interval seconds (or every 3 seconds
@@ -216,8 +154,8 @@ initHeartbeat = function(interval) {
         }//interval function
         , interval?interval*1000:3000
     ); // setInterval
-}//initHeartbeat
+}; //initHeartbeat
 
 // initialize heartbeat at x second interval
-initHeartbeat(3);
+initHeartbeat(10);
 

@@ -51,15 +51,20 @@ var ConnectionWrapper = (function () {
     }
 
     ConnectionWrapper.prototype.send = function(msg, topic) {
-        if (topic === "__HEARTBEAT") {
-            var newMsg = msg;
-            newMsg["messageCount"] = this.connection.messageCount;
-            console.log("Sending heartbeat message: " + JSON.stringify(newMsg));
-            this.connection.send(newMsg);
-        } else {
-            if (this.topicSubscribed(topic)) {
+        switch(topic) {
+            case "__HEARTBEAT":
+                var newMsg = msg;
+                newMsg["messageCount"] = this.connection.messageCount;
+                console.log("Sending heartbeat message: " + JSON.stringify(newMsg));
+                this.connection.send(newMsg);
+                break;
+            case "__QUERY_END":
                 this.connection.send(msg);
-            }
+                break;
+            default:
+                if (this.topicSubscribed(topic)) {
+                    this.connection.send(msg);
+                }
         }
     }
 

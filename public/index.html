@@ -9,34 +9,15 @@
     <script>
         var srch = window.location.search;
 
-        var msgSource = new EventSource("../jobStatus/init" + srch);
-        msgSource.onmessage = function(event) {
-
-            var writeLog = function (logMsg) {
-                if (document.getElementById("logArea").style.visibility === 'visible') {
-                    var logA = document.getElementById("logArea");
-                    logA.innerHTML = logMsg + "<br>" + logA.innerHTML;
-                }
+        var writeLog = function (logMsg) {
+            if (document.getElementById("logArea").style.visibility === 'visible') {
+                var logA = document.getElementById("logArea");
+                logA.innerHTML = logMsg + "<br>" + logA.innerHTML;
             }
+        };
 
-            var logArea = document.getElementById("logArea");
-            var tableArea = document.getElementById("tableArea");
-
-            var msg = JSON.parse(event.data);
-            writeLog("Received QUERY heartbeat: " + JSON.stringify(msg));
-        }
-
-        var msgSource = new EventSource("../jobStatus/updates" + srch);
-        msgSource.onmessage = function(event) {
-
-            var writeLog = function(logMsg){
-                if (document.getElementById("logArea").style.visibility === 'visible') {
-                    var logA = document.getElementById("logArea");
-                    logA.innerHTML = logMsg + "<br>" + logA.innerHTML;
-                }
-            }
-
-            var logArea = document.getElementById("logArea");
+        var processEvent = function (event, src){
+            //var logArea = document.getElementById("logArea");
             var tableArea = document.getElementById("tableArea");
             var msg = JSON.parse(event.data);
             if (msg.topic) {
@@ -79,13 +60,18 @@
                 if (document.getElementById(rowID) != null){
                     var r = document.getElementById(rowID);
                     var colNum = 0;
+                    // TODO timestamp comparison.
                     for (var k in msgVal) {
+                        // TODO check for null:
+                        // if (data[member] != null)
                         r.cells[colNum].innerHTML = msgVal[k];
                         colNum++;
                     }
 
                 } else {
                     var rowToInsert;
+                    // Loop through the rows until we find the one that is alphabetically after the one we're inserting
+                    // If the row doesn't exist it'll create it.
                     for (var rowToInsert = 1, row; row = t.rows[rowToInsert] && t.rows[rowToInsert].id < rowID; rowToInsert++){
                         ;
                     }
@@ -103,13 +89,29 @@
                 //TODO add highlighting of the row, green/red/yellow based on status
 
             } else {
-                var lu = document.getElementById("lastUpdate");
                 var txt = JSON.parse(event.data);
-                lu.innerHTML = "Last server heartbeat received: " + txt.time;
-                writeLog("Received MESSAGE heartbeat: " + JSON.stringify(txt));
+                if (txt.message === 'QUERIES_COMPLETE'){
+                    writeLog("Received " + src + " message: QUERIES COMPLETE");
+                    qrySource.close();
+                    writeLog("Closed the query source connection");
+                } else {
+                    var lu = document.getElementById("lastUpdate");
+                    lu.innerHTML = "Last server heartbeat received: " + txt.time;
+                    writeLog("Received " + src + " heartbeat: " + JSON.stringify(txt));
+                }
             } // if there's a topic
+        };
 
-        };//onMessage
+        var qrySource = new EventSource("../jobStatus/init" + srch);
+        qrySource.onmessage = function(event) {
+            processEvent(event, 'QUERY');
+        };
+
+        var msgSource = new EventSource("../jobStatus/updates" + srch);
+        msgSource.onmessage = function(event) {
+            processEvent(event, 'MESSAGE');
+        };
+
     </script>
 </head>
 <body>
@@ -117,6 +119,6 @@
 <div id="lastUpdate">
     <p>Last server heartbeat received: </p>
 </div>
-<div id="logArea" style="visibility: hidden"></div>
+<div id="logArea" style="visibility: visible"></div>
 </body>
 </html>
