@@ -8,6 +8,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>
         var srch = window.location.search;
+        var qrySource, msgSource;
+
+        function runQueries(){
+            var b = document.getElementById('rerunQueries');
+            if (b) {
+                b.disabled = true;
+            }
+            qrySource = new EventSource("../jobStatus/init" + srch);
+            qrySource.onmessage = function(event) {
+                processEvent(event, 'QUERY');
+            };
+        }
 
         var writeLog = function (logMsg) {
             if (document.getElementById("logArea").style.visibility === 'visible') {
@@ -18,7 +30,6 @@
 
         //TODO Add a filtering capability.
         var processEvent = function (event, src){
-            //var logArea = document.getElementById("logArea");
             var tableArea = document.getElementById("tableArea");
             var msg = JSON.parse(event.data);
             var row;
@@ -31,7 +42,6 @@
                 if (document.getElementById(tblID) == null) {
                     writeLog("Creating table");
                     var table = document.createElement('table');
-                    //TODO Add a heading for the table
                     table.id = tblID;
                     if (msgMetadata.timestampCol) {
                         table.setAttribute('timestampFieldName',msgMetadata.timestampCol);
@@ -49,6 +59,9 @@
                         col++;
                     }
                     table.appendChild(row);
+                    var h = document.createElement('H1');
+                    h.innerHTML = msgMetadata.tableHeading || tblID;
+                    tableArea.appendChild(h);
                     tableArea.appendChild(table);
                     tableArea.appendChild(document.createElement('br'));
                 } else {
@@ -56,7 +69,6 @@
                 }
 
                 var t = document.getElementById(tblID);
-                var thisRow;
                 var rowID = tblID + "._." + msgVal[t.getAttribute('keyFieldName')];
                 writeLog("Row ID will be: " + rowID);
 
@@ -75,17 +87,22 @@
                             newTS = msgMetadata.timestampVal;
                         }
                     }
+
                     writeLog("Comparing newTS of " + newTS + " with prevTS of " + prevTS);
                     if (newTS > prevTS) {
                         for (var k in msgVal) {
-                            // TODO check for null:
-                            // if (data[member] != null)
-                            r.cells[colNum].innerHTML = msgVal[k];
+                            if (msgVal[k] != null) {
+                                r.cells[colNum].innerHTML = msgVal[k];
+                            }
                             colNum++;
                         }
                         r.setAttribute('lastUpdateTimestamp', newTS);
+                        if (msgMetadata.rowColour) {
+                            r.bgColor = msgMetadata.rowColour;
+                        } else {
+                            r.bgColor = 'white';
+                        }
                     }
-                    thisRow = r;
                 } else {
                     var rowToInsert;
                     // Loop through the rows until we find the one that is alphabetically after the one we're inserting
@@ -99,21 +116,21 @@
 
                     for (var k in msgVal) {
                         newRow.appendChild(document.createElement('td'));
-                        newRow.cells[colNum].appendChild(document.createTextNode(msgVal[k]));
+                        var newVal = msgVal[k] === null ? '' : msgVal[k];
+                        newRow.cells[colNum].appendChild(document.createTextNode(newVal));
                         if (msgMetadata.timestampVal) {
                             newRow.setAttribute('lastUpdateTimestamp', msgMetadata.timestampVal);
                         }
                         colNum++;
                     }
-                    thisRow = newRow;
+
+                    if (msgMetadata.rowColour) {
+                        newRow.bgColor = msgMetadata.rowColour;
+                    } else {
+                        newRow.bgColor = 'white';
+                    }
                 }
 
-                //TODO add highlighting of the row, green/red/yellow based on status
-                if (msgMetadata.rowColour) {
-                    thisRow.bgColor = msgMetadata.rowColour;
-                } else {
-                    thisRow.bgColor = 'white';
-                }
 
             } else {
                 var txt = JSON.parse(event.data);
@@ -121,21 +138,28 @@
                     writeLog("Received " + src + " message: QUERIES COMPLETE");
                     qrySource.close();
                     writeLog("Closed the query source connection");
+                    var b = document.getElementById('rerunQueries');
+                    b.disabled = false;
                 } else {
-                    var lu = document.getElementById("lastUpdate");
-                    //TODO format the time for local time
-                    lu.innerHTML = "Last server heartbeat sent: " + txt.time;
-                    writeLog("Received " + src + " heartbeat: " + JSON.stringify(txt));
+                    if (txt.label === 'HEARTBEAT') {
+                        var lu = document.getElementById("lastUpdate");
+                        var newTime = new Date(txt.time);
+                        lu.innerHTML = "<p>Last server heartbeat sent: " + newTime.toLocaleString() + "<br>" + "Message count: " + txt.messageCount + '</p>';
+                        writeLog("Received " + src + " heartbeat: " + JSON.stringify(txt));
+                    } else {
+                        writeLog("Unknown message received: " + JSON.stringify(txt));
+                    }
                 }
             } // if there's a topic
         };
 
-        var qrySource = new EventSource("../jobStatus/init" + srch);
+        runQueries();
+        /*var qrySource = new EventSource("../jobStatus/init" + srch);
         qrySource.onmessage = function(event) {
             processEvent(event, 'QUERY');
         };
-
-        var msgSource = new EventSource("../jobStatus/updates" + srch);
+*/
+        msgSource = new EventSource("../jobStatus/updates" + srch);
         msgSource.onmessage = function(event) {
             processEvent(event, 'MESSAGE');
         };
@@ -143,9 +167,10 @@
     </script>
 </head>
 <body>
+<div id="controlArea"><button type="button" id="rerunQueries" disabled="disabled" onclick="runQueries()">Rerun Queries</button></div>
 <div id="tableArea"></div>
 <div id="lastUpdate">
-    <p>Last server heartbeat received: </p>
+    <p>Last server heartbeat sent: <br>Message count: </p>
 </div>
 <div id="logArea" style="visibility: hidden"></div>
 </body>

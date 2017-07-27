@@ -62,6 +62,9 @@ function formatMessage(msg, topic, type, conf) {
     for (var i = 0; i < conf.kafkaTopics.length; i++) {
         if (conf.kafkaTopics[i].topic === topic) {
             tsCol = conf.kafkaTopics[i].timestampCol;
+            if (conf.kafkaTopics[i].tableHeading){
+                metaVal['tableHeading'] = conf.kafkaTopics[i].tableHeading;
+            }
         }
     }
     if (tsCol) {
@@ -74,7 +77,7 @@ function formatMessage(msg, topic, type, conf) {
         }
     }
 
-    //TODO remove this hack
+    //TODO remove this hack, needs to be metadata controlled based on topic
     switch (msgVal['status']) {
         case 'ENDED_OK':
             metaVal['rowColour'] = 'green';

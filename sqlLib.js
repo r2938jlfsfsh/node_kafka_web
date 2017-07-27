@@ -9,6 +9,8 @@ var async = require('async')
     , sqlite3 = require('sqlite3')
 ;
 
+//TODO Separate this into sqlite specific and SQL generic libraries
+
 function runClientQueries(conn, topicConf){
     console.log('New consumer started - registering init queries');
 

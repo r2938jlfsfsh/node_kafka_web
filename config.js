@@ -20,6 +20,7 @@ module.exports = {
         {
             topic: "jobStatusX",
             timestampCol: "_msgTimestamp",
+            tableHeading: "Job Status X",
             initQueryConf: {
                 dbType: 'sqlite3',
                 dbConf: {
@@ -31,6 +32,7 @@ module.exports = {
         {
             topic: "jobStatus",
             timestampCol: "_msgTimestamp",
+            tableHeading: "Job Status",
             initQueryConf: {
                 dbType: 'sqlite3',
                 dbConf: {

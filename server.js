@@ -144,7 +144,7 @@ if (args.QUERY_SERVER) {
 // if no interval is specified)
 initHeartbeat = function(interval) {
     setInterval(function()  {
-            var msg = {"label":"The latest", "time":new Date()};
+            var msg = {"label":"HEARTBEAT", "time":new Date()};
             if (args.MESSAGE_SERVER) {
                 updateSseClients(msg, "__HEARTBEAT", sseClients);
             }
@@ -157,5 +157,5 @@ initHeartbeat = function(interval) {
 }; //initHeartbeat
 
 // initialize heartbeat at x second interval
-initHeartbeat(30);
+initHeartbeat(5);
 

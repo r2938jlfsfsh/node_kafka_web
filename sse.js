@@ -4,9 +4,9 @@ console.log("loading sse.js");
 
 // ... with this middleware:
 function sseMiddleware(req, res, next) {
-    console.log(" sseMiddleware is activated with "+ req+" res: "+res);
+    //console.log(" sseMiddleware is activated with "+ req+" res: "+res);
     res.sseConnection = new Connection(res);
-    console.log(" res has now connection  res: "+res.sseConnection );
+    //console.log(" res has now connection  res: "+res.sseConnection );
     next();
 }
 exports.sseMiddleware = sseMiddleware;
@@ -15,7 +15,7 @@ exports.sseMiddleware = sseMiddleware;
  */
 var Connection = (function () {
     function Connection(res) {
-        console.log(" sseMiddleware construct connection for response ");
+        //console.log(" sseMiddleware construct connection for response ");
 
         this.res = res;
         this.messageCount = 0;
