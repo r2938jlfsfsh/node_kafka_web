@@ -154,11 +154,7 @@
         };
 
         runQueries();
-        /*var qrySource = new EventSource("../jobStatus/init" + srch);
-        qrySource.onmessage = function(event) {
-            processEvent(event, 'QUERY');
-        };
-*/
+
         msgSource = new EventSource("../jobStatus/updates" + srch);
         msgSource.onmessage = function(event) {
             processEvent(event, 'MESSAGE');
