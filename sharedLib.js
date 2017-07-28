@@ -7,7 +7,7 @@ function processArgs(args){
 
     // Set-up defaults:
     retArgs['MESSAGE_SERVER'] = true;
-    retArgs['QUERY_SERVER'] = true;
+    retArgs['QUERY_SERVER'] = false;
 
     // Ignore first 2 arguments which are node and script name
     for(var argNum = 2; argNum < args.length; argNum++){
@@ -17,9 +17,11 @@ function processArgs(args){
                 switch(argArr[1]) {
                     case 'messageServer':
                         retArgs['QUERY_SERVER'] = false;
+                        retArgs['MESSAGE_SERVER'] = true;
                         break;
                     case 'queryServer':
                         retArgs['MESSAGE_SERVER'] = false;
+                        retArgs['QUERY_SERVER'] = true;
                         break;
                     default:
                         console.log("WARNING: invalid SERVER_TYPE parameter passed, ignoring: " + argArr[1]);

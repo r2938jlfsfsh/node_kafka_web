@@ -8,25 +8,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>
         var srch = window.location.search;
+        var qryURI = window.location.hostname;
         var qrySource, msgSource;
+
+        var writeLog = function (logMsg) {
+            if (document.getElementById("logArea") && document.getElementById("logArea").style.visibility === 'visible') {
+                var logA = document.getElementById("logArea");
+                logA.innerHTML = logMsg + "<br>" + logA.innerHTML;
+            }
+        };
 
         function runQueries(){
             var b = document.getElementById('rerunQueries');
             if (b) {
                 b.disabled = true;
             }
-            qrySource = new EventSource("../jobStatus/init" + srch);
+            qrySource = new EventSource("http://" + qryURI + ":3001" + "/jobStatus/init" + srch);
+            //qrySource = new EventSource("../jobStatus/init" + srch);
             qrySource.onmessage = function(event) {
                 processEvent(event, 'QUERY');
             };
+            writeLog("SJDFLDKJFLDKJFLDKJ: " + qryURI);
         }
 
-        var writeLog = function (logMsg) {
-            if (document.getElementById("logArea").style.visibility === 'visible') {
-                var logA = document.getElementById("logArea");
-                logA.innerHTML = logMsg + "<br>" + logA.innerHTML;
-            }
-        };
 
         //TODO Add a filtering capability.
         var processEvent = function (event, src){

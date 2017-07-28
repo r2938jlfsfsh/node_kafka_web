@@ -63,16 +63,58 @@ server.listen(myPort, function () {
     console.log('Server running, version '+conf.APP_VERSION+', Express is listening... at '+ myPort);
 });
 
-app.use(express.static(__dirname + '/public'));
+if (args.MESSAGE_SERVER) {
+    app.use(express.static(__dirname + '/public'));
+    app.use(function (req, res, next) {
 
-app.get('/about', function (req, res) {
-    res.writeHead(200, {'Content-Type': 'text/html'});
-    res.write("Version "+conf.APP_VERSION+". No Data Requested, so none is returned");
-    res.write("Supported URLs:");
-    res.write("/public , /public/index.html ");
-    res.write("incoming headers" + JSON.stringify(req.headers));
-    res.end();
-});
+        // Website you wish to allow to connect
+        res.setHeader('Access-Control-Allow-Origin', 'http://localhost:' + conf.QRY_LISTEN_PORT);
+
+        // Request methods you wish to allow
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+
+        // Request headers you wish to allow
+        res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+
+        // Set to true if you need the website to include cookies in the requests sent
+        // to the API (e.g. in case you use sessions)
+        //res.setHeader('Access-Control-Allow-Credentials', true);
+
+        // Pass to next layer of middleware
+        next();
+    });
+
+    app.get('/about', function (req, res) {
+        res.writeHead(200, {'Content-Type': 'text/html'});
+        res.write("Version "+conf.APP_VERSION+". No Data Requested, so none is returned");
+        res.write("Supported URLs:");
+        res.write("/public , /public/index.html ");
+        res.write("incoming headers" + JSON.stringify(req.headers));
+        res.end();
+    });
+}
+
+if (args.QUERY_SERVER) {
+    app.use(function (req, res, next) {
+
+        // Website you wish to allow to connect
+        res.setHeader('Access-Control-Allow-Origin', 'http://localhost:' + conf.MSG_LISTEN_PORT);
+
+        // Request methods you wish to allow
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+
+        // Request headers you wish to allow
+        res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+
+        // Set to true if you need the website to include cookies in the requests sent
+        // to the API (e.g. in case you use sessions)
+        //res.setHeader('Access-Control-Allow-Credentials', true);
+
+        // Pass to next layer of middleware
+        next();
+    });
+}
+
 
 //configure sseMW.sseMiddleware as function to get a stab at incoming requests, in this case by adding a
 // Connection property to the request
