@@ -24,7 +24,7 @@ module.exports = {
             initQueryConf: {
                 dbType: 'sqlite3',
                 dbConf: {
-                    filename: '/home/rd/WebstormProjects/db/sqllite.db',
+                    filename: './db/sqllite.db',
                     query: "select * from job_status_vw where length(job_name) < 5 order by job_name desc"
                 }
             }
@@ -36,7 +36,7 @@ module.exports = {
             initQueryConf: {
                 dbType: 'sqlite3',
                 dbConf: {
-                    filename: '/home/rd/WebstormProjects/db/sqllite.db',
+                    filename: './db/sqllite.db',
                     query: "select * from job_status_vw where length(job_name) < 5 order by job_name"
                 }
             }
